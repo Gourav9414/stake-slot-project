@@ -20,6 +20,25 @@ class MathEngineTests(unittest.TestCase):
         self.assertEqual(len(PAYLINES), 20)
         self.assertEqual(len(set(PAYLINES)), 20)
 
+    def test_reel_symbol_inventory(self):
+        from collections import Counter
+        expected = Counter({"W": 1, "PHX": 2, "GEAR": 4, "KEY": 5, "A": 8, "K": 8, "Q": 10, "J": 10, "S": 2})
+        for reel in self.config.reels:
+            self.assertEqual(Counter(reel), expected)
+
+    def test_scatter_awards(self):
+        self.assertEqual(self.config.scatter_payout(2), 0)
+        self.assertEqual(self.config.scatter_payout(3), 2)
+        self.assertEqual(self.config.scatter_payout(4), 10)
+        self.assertEqual(self.config.scatter_payout(6), 50)
+        self.assertEqual(self.config.free_spin_award(2), 0)
+        self.assertEqual(self.config.free_spin_award(3), 10)
+        self.assertEqual(self.config.free_spin_award(4), 15)
+        self.assertEqual(self.config.free_spin_award(6), 20)
+
+    def test_scatter_distribution_sums_to_one(self):
+        self.assertAlmostEqual(sum(self.config.scatter_distribution.values()), 1.0, places=12)
+
     def test_theoretical_rtp_is_exact_uncapped_target(self):
         self.assertAlmostEqual(self.config.theoretical_rtp_uncapped, 0.96, places=12)
 
@@ -47,6 +66,15 @@ class MathEngineTests(unittest.TestCase):
         self.assertEqual(first, second)
 
     def test_win_cap_is_enforced(self):
+        original = self.state._resolve_spin
+        self.state._resolve_spin = lambda rng, bet, is_free_spin: {
+            "board": [["A"] * 5 for _ in range(3)], "line_wins": [],
+            "line_payout": 0.0, "scatter_count": 0, "scatter_payout": 0.0,
+            "free_spins_awarded": 0, "payout": 6000.0 * bet,
+        }
+        capped = self.state.run_spin(random.Random(1), bet=2.0)
+        self.assertEqual(capped["payout"], self.config.max_win * 2.0)
+        self.state._resolve_spin = original
         for seed in range(500):
             result = self.state.run_spin(random.Random(seed), bet=2.0)
             self.assertLessEqual(result["payout"], self.config.max_win * 2.0)
