@@ -1,0 +1,6 @@
+{
+  "name": "clockwork-kingdom-local-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": { "test:frontend": "node --test tests/test_frontend.mjs" }
+}
