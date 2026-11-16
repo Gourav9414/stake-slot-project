@@ -4,8 +4,6 @@ on:
     types: [opened, edited]
   pull_request:
     types: [opened, synchronize, reopened]
-  workflow_run:
-    types: [completed]
 
 permissions:
   contents: write
