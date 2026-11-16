@@ -1,18 +1,23 @@
 # Clockwork Kingdom — Fortune Foundry
 
-A 5-reel × 3-row, 20-fixed-payline slot prototype targeting 96.00% theoretical RTP.
+A local 5-reel × 3-row, 20-fixed-payline slot prototype with virtual credits.
 
-## Run the local math prototype
+## Play locally
 
-```bash
-python games/clockwork_kingdom/run.py --spins 10000 --seed 20261116
-python -m unittest discover -s tests -v
+Follow [RUN_INSTRUCTIONS.md](RUN_INSTRUCTIONS.md). From the repository root:
+
+```powershell
+py -3.12 -m http.server 8000
 ```
 
-The simulation report is written to `games/clockwork_kingdom/reports/`. The **uncapped** theoretical RTP is calculated analytically from the reel strips, payline paytable, scatter awards, and non-retriggering free-spin expectation. The 5,000× round cap is applied in simulation; its extreme-tail RTP effect is not analytically bounded yet. Monte Carlo results are sample estimates and vary with seed and sample size.
+Open http://localhost:8000/web/ in your browser.
 
-## Stake Engine status
+## Project layout
 
-This branch contains a standalone math prototype and deterministic event model using the SDK-style game folder naming. It is **not yet a complete Stake Engine Math SDK publication package**. The official Math SDK's `create_books`, optimizer, generated configs, and RGS format verification still need to be run before this math can be called upload-ready. Do not upload the standalone simulation reports as a certified math package.
+- `web/`: standalone HTML, CSS and JavaScript game client.
+- `games/clockwork_kingdom/`: Python math model, reel strips and simulation runner.
+- `tests/`: Python and JavaScript tests.
 
-The official SDK uses Python 3.12+, expects each game under `games/<game_id>/`, and generates books, lookup tables, and configs from the SDK runner. See the [official Math SDK](https://github.com/engineio/math-sdk) and [quick-start](https://stake-engine.com/docs/math/quick-start).
+## Scope and math status
+
+This is a local demonstration only. It uses virtual credits and does not connect to Stake Engine, an RGS, a wallet, or a remote API. The Python runner produces Monte Carlo simulation reports; it does **not** currently generate official Stake Engine math books or lookup tables. The 96% value is an uncapped analytical target, not a certified/post-cap RTP guarantee.
