@@ -1,0 +1,29 @@
+{
+  "game_id": "clockwork_kingdom",
+  "simulations": 100000,
+  "seed": 20261116,
+  "bet_per_paid_round": 1.0,
+  "total_bet": 100000.0,
+  "total_payout": 96344.29983730672,
+  "empirical_rtp": 0.9634429983730672,
+  "sample_standard_deviation_per_round": 2.6977028710460456,
+  "rtp_standard_error": 0.008530885522881008,
+  "rtp_95pct_normal_interval": [0.9467224627482205, 0.980163533997914],
+  "theoretical_rtp_uncapped": 0.96,
+  "target_rtp": 0.96,
+  "hit_rate": 0.43861,
+  "feature_trigger_rate": 0.0197,
+  "average_free_spins_per_paid_round": 0.20985,
+  "max_observed_win_multiplier": 95.25743132414955,
+  "payout_buckets": {"zero": 56139, "win": 43861},
+  "math": {
+    "paytable_scale": 11.16089551766943,
+    "line_rtp_contribution_uncapped": 0.8852184550680819,
+    "scatter_rtp_contribution_uncapped": 0.07478154493191795,
+    "expected_free_spins_per_paid_round": 0.20670950400000032,
+    "scatter_trigger_probability": 0.01952286720000003,
+    "scatter_count_distribution": {"0":0.5397258240000014,"1":0.3423715328000007,"2":0.09837977600000017,"3":0.017369088000000026,"4":0.0020113920000000025,"5":0.00013824000000000009,"6":0.0000041472000000000016},
+    "max_win_cap": 5000.0
+  },
+  "note": "Empirical RTP is a Monte Carlo estimate. The 96.00% analytical RTP is before the 5,000x round cap; the cap effect on the extreme tail is not analytically bounded here. This prototype is not an SDK validation or certification result."
+}
