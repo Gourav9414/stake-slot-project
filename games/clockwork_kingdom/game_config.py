@@ -87,12 +87,13 @@ class GameConfig:
         valid = set(BASE_PAYTABLE) | {"S"}
         if len(self.reels) != 5 or any(len(reel) < 5 for reel in self.reels):
             raise ValueError("Expected five reel strips, each with at least five stops.")
+        expected_counts = Counter({"W": 1, "PHX": 2, "GEAR": 4, "KEY": 5, "A": 8, "K": 8, "Q": 10, "J": 10, "S": 2})
         for index, reel in enumerate(self.reels, start=1):
             unknown = set(reel) - valid
             if unknown:
                 raise ValueError(f"Unknown symbols on reel {index}: {sorted(unknown)}")
-            if "S" not in reel:
-                raise ValueError(f"Reel {index} must contain Scatter symbols.")
+            if Counter(reel) != expected_counts:
+                raise ValueError(f"Reel {index} symbol inventory does not match the configured 50-stop math model.")
 
     @staticmethod
     def scatter_payout(count: int) -> float:
