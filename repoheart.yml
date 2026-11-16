@@ -1,0 +1,9 @@
+repoheart:
+  provider:
+    name: openai
+    model: gpt-4o
+  agents:
+    issue_triage: true
+    pr_review: true
+    code_quality: true
+    security: true
