@@ -1,114 +1,32 @@
 import { parseReelCsv, resolvePaidRound, SYMBOLS, BASE_PAYTABLE, PAYTABLE_SCALE, PAYLINES } from "./engine.js";
 
 const $ = id => document.getElementById(id);
-const balanceEl = $("balance");
-const betEl = $("bet");
-const spinButton = $("spin");
-const lastWinEl = $("last-win");
-const statusEl = $("status");
-const summaryEl = $("round-summary");
-const reelsEl = $("reels");
-let reels = null;
-let balance = 1000;
-let busy = false;
-
-const money = value => Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-function makePaytable() {
-  const rows = [`<div class="pay-row header"><span>SYMBOL</span><span>3</span><span>4</span><span>5</span></div>`];
-  for (const [symbol, pays] of Object.entries(BASE_PAYTABLE)) {
-    const glyph = SYMBOLS[symbol].glyph;
-    rows.push(`<div class="pay-row"><span class="pay-symbol">${glyph} ${symbol}</span><span>${(pays[3] * PAYTABLE_SCALE).toFixed(1)}×</span><span>${(pays[4] * PAYTABLE_SCALE).toFixed(1)}×</span><span>${(pays[5] * PAYTABLE_SCALE).toFixed(1)}×</span></div>`);
-  }
-  $("paytable").innerHTML = rows.join("");
-}
-
-function renderBoard(board, lineWins = [], scatterPositions = []) {
-  const winning = new Set();
-  for (const win of lineWins) for (const pos of win.positions) winning.add(`${pos.row}:${pos.reel}`);
-  const scatters = new Set(scatterPositions.map(pos => `${pos.row}:${pos.reel}`));
-  reelsEl.innerHTML = Array.from({ length: 5 }, (_, reel) => {
-    const cells = Array.from({ length: 3 }, (_, row) => {
-      const symbol = board[row][reel];
-      const classes = ["cell"];
-      if (winning.has(`${row}:${reel}`)) classes.push("win-cell");
-      else if (scatters.has(`${row}:${reel}`)) classes.push("scatter-cell");
-      if (["PHX", "GEAR", "KEY"].includes(symbol)) classes.push("symbol-small");
-      return `<div class="${classes.join(" ")}" title="${SYMBOLS[symbol].name}">${SYMBOLS[symbol].glyph}</div>`;
-    }).join("");
-    return `<div class="reel">${cells}</div>`;
-  }).join("");
-}
-
-function updateWallet() {
-  balanceEl.textContent = money(balance);
-  spinButton.disabled = busy || !reels || balance < Number(betEl.value);
-}
-
-function formatWinSummary(result) {
-  const baseLines = result.base.lineWins.length;
-  const scatterCount = result.base.scatterCount;
-  const pieces = [];
-  if (baseLines) pieces.push(`${baseLines} winning line${baseLines === 1 ? "" : "s"}`);
-  if (scatterCount >= 3) pieces.push(`${scatterCount} Scatters · ${result.base.freeSpinsAwarded} free spins`);
-  if (result.freeSpins.length) {
-    const featureTotal = result.freeSpins.reduce((sum, spin) => sum + spin.payout, 0);
-    pieces.push(`Time Rift paid ${money(featureTotal)} across ${result.freeSpins.length} free spins`);
-  }
-  if (result.capped) pieces.push("5,000× round cap reached");
-  return pieces.length ? pieces.join(" · ") : `No win this round. ${PAYLINES.length} paylines were evaluated.`;
-}
-
-async function spin() {
-  if (busy || !reels) return;
-  const bet = Number(betEl.value);
-  if (bet <= 0 || balance < bet) return;
-  busy = true;
-  balance -= bet;
-  updateWallet();
-  statusEl.textContent = "The foundry is turning…";
-  summaryEl.textContent = "Reels in motion…";
-  lastWinEl.textContent = "—";
-  reelsEl.classList.add("spinning");
-  await delay(620);
-  try {
-    const result = resolvePaidRound(reels, bet);
-    reelsEl.classList.remove("spinning");
-    renderBoard(result.base.board, result.base.lineWins, result.base.scatterPositions);
-    balance += result.payout;
-    lastWinEl.textContent = money(result.payout);
-    statusEl.textContent = result.payout > 0
-      ? `ROUND WIN · ${result.payoutMultiplier.toFixed(2)}× BET · ${money(result.payout)} CREDITS`
-      : "NO WIN · THE KINGDOM KEEPS ITS SECRETS";
-    summaryEl.textContent = formatWinSummary(result);
-  } catch (error) {
-    balance += bet;
-    statusEl.textContent = `Spin error: ${error.message}`;
-    statusEl.classList.add("loading-error");
-  } finally {
-    reelsEl.classList.remove("spinning");
-    busy = false;
-    updateWallet();
-  }
-}
-
-async function init() {
-  makePaytable();
-  betEl.addEventListener("change", updateWallet);
-  spinButton.addEventListener("click", spin);
-  try {
-    const response = await fetch("../games/clockwork_kingdom/reels/BR0.csv");
-    if (!response.ok) throw new Error(`Could not load reel strips (${response.status}).`);
-    reels = parseReelCsv(await response.text());
-    renderBoard([["GEAR","J","KEY","J","GEAR"],["J","J","K","A","K"],["KEY","KEY","J","J","KEY"]]);
-    statusEl.textContent = "Reels ready. Choose a virtual bet and spin.";
-    updateWallet();
-  } catch (error) {
-    statusEl.textContent = `${error.message} Start the local web server from the repository root.`;
-    statusEl.classList.add("loading-error");
-    updateWallet();
-  }
-}
-
+const balanceEl=$("balance"),betEl=$("bet"),spinButton=$("spin"),lastWinEl=$("last-win"),statusEl=$("status"),summaryEl=$("round-summary"),reelsEl=$("reels"),fxLayer=$("fx-layer");
+let reels=null,balance=1000,busy=false,audioContext=null;
+const money=value=>Number(value).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const SYMBOL_ART={
+ W:(g)=>`<path d="M19 17 11 7 18 10 24 3 30 10 37 3 44 10 51 7 43 17Z" fill="url(#${g}gold)" stroke="#684018" stroke-width="2"/><path d="M22 20h18l4 22H18Z" fill="url(#${g}gold)" stroke="#684018" stroke-width="2"/><path d="M23 28h16M24 34h14" stroke="#fff0bd" stroke-width="2"/><circle cx="31" cy="30" r="3" fill="#7b351b"/><path d="M18 44h27" stroke="#6a3b17" stroke-width="3"/>`,
+ PHX:(g)=>`<path d="M31 6c-2 12 11 14 8 25 7-5 8-12 7-17 11 13 10 27-1 35-10 8-25 2-27-10-2-9 3-17 11-25-1 8 2 11 4 13 3-7-1-13-2-21Z" fill="url(#${g}fire)" stroke="#7c2b12" stroke-width="2"/><path d="M31 28c-7 8-7 16 1 20 7-5 8-12 3-18-1 5-3 6-4 7 1-4 1-6 0-9Z" fill="#fff0a3"/>`,
+ GEAR:(g)=>`<path d="M26 3h10l2 7 6 3 7-3 6 9-5 5v8l5 5-6 9-7-3-6 3-2 7H26l-2-7-6-3-7 3-6-9 5-5v-8l-5-5 6-9 7 3 6-3Z" transform="translate(4 0) scale(.88)" fill="url(#${g}steel)" stroke="#39424b" stroke-width="2.5"/><circle cx="31" cy="29" r="12" fill="#79501f" stroke="#f6d28c" stroke-width="3"/><circle cx="31" cy="29" r="5" fill="#e6bd70" stroke="#593918" stroke-width="2"/><path d="M31 9v7m0 26v7M11 29h7m26 0h7" stroke="#f7dca0" stroke-width="2"/>`,
+ KEY:(g)=>`<circle cx="20" cy="21" r="11" fill="none" stroke="url(#${g}gold)" stroke-width="7"/><path d="M28 29 51 52h-9v-8h-8v-8h-7" fill="url(#${g}gold)" stroke="#684018" stroke-width="2.5" stroke-linejoin="round"/><circle cx="20" cy="21" r="4" fill="#684018"/>`,
+ S:(g)=>`<circle cx="31" cy="29" r="24" fill="url(#${g}gold)" stroke="#6b421b" stroke-width="3"/><circle cx="31" cy="29" r="18" fill="#243747" stroke="#fff0bd" stroke-width="2"/><path d="M31 14v15l10 7" fill="none" stroke="#f7d88c" stroke-width="3" stroke-linecap="round"/><circle cx="31" cy="29" r="3" fill="#fff0bd"/><path d="M23 4h16M26 0h10" stroke="#f7d88c" stroke-width="3"/><path d="M49 10 54 5" stroke="#f7d88c" stroke-width="3"/>`,
+ A:(g)=>letterMedallion("A",g),K:(g)=>letterMedallion("K",g),Q:(g)=>letterMedallion("Q",g),J:(g)=>letterMedallion("J",g)
+};
+function letterMedallion(letter,g){return `<circle cx="31" cy="29" r="23" fill="url(#${g}steel)" stroke="#745027" stroke-width="3"/><circle cx="31" cy="29" r="18" fill="#34251a" stroke="#f3d18a" stroke-width="1.5"/><text x="31" y="40" text-anchor="middle" font-family="Georgia,serif" font-size="31" font-weight="bold" fill="#f5d99a" stroke="#6a431d" stroke-width=".7">${letter}</text><circle cx="31" cy="7" r="2" fill="#fff0bd"/><circle cx="31" cy="51" r="2" fill="#fff0bd"/>`}
+function symbolSvg(symbol,index=0){const id=`s${index}`;const art=SYMBOL_ART[symbol]||SYMBOL_ART.J;return `<svg class="symbol-art" viewBox="0 0 62 58" role="img" aria-label="${SYMBOLS[symbol].name}"><defs><linearGradient id="${id}gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2bd"/><stop offset=".35" stop-color="#e9bb62"/><stop offset=".7" stop-color="#a96927"/><stop offset="1" stop-color="#ffe4a0"/></linearGradient><linearGradient id="${id}steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e5e6d8"/><stop offset=".35" stop-color="#76828a"/><stop offset=".7" stop-color="#34434d"/><stop offset="1" stop-color="#e0c18a"/></linearGradient><linearGradient id="${id}fire" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff2a0"/><stop offset=".4" stop-color="#f4a12c"/><stop offset="1" stop-color="#a62e16"/></linearGradient></defs>${art(id)}</svg>`}
+function makePaytable(){const rows=[`<div class="pay-row header"><span>RELIC</span><span>3</span><span>4</span><span>5</span></div>`];for(const [symbol,pays] of Object.entries(BASE_PAYTABLE)){rows.push(`<div class="pay-row"><span class="pay-symbol">${SYMBOLS[symbol].name}</span><span>${(pays[3]*PAYTABLE_SCALE).toFixed(1)}×</span><span>${(pays[4]*PAYTABLE_SCALE).toFixed(1)}×</span><span>${(pays[5]*PAYTABLE_SCALE).toFixed(1)}×</span></div>`)}$("paytable").innerHTML=rows.join("")}
+function renderBoard(board,lineWins=[],scatterPositions=[]){const winning=new Set();for(const win of lineWins)for(const pos of win.positions)winning.add(`${pos.row}:${pos.reel}`);const scatters=new Set(scatterPositions.map(pos=>`${pos.row}:${pos.reel}`));reelsEl.innerHTML=Array.from({length:5},(_,reel)=>`<div class="reel">${Array.from({length:3},(_,row)=>{const symbol=board[row][reel],key=`${row}:${reel}`,classes=["cell"];if(winning.has(key))classes.push("win-cell");else if(scatters.has(key))classes.push("scatter-cell");return `<div class="${classes.join(" ")}" title="${SYMBOLS[symbol].name}">${symbolSvg(symbol,row*5+reel)}</div>`}).join("")}</div>`).join("")}
+function updateWallet(){balanceEl.textContent=money(balance);spinButton.disabled=busy||!reels||balance<Number(betEl.value)}
+function ensureAudio(){if(!audioContext){const AudioCtx=window.AudioContext||window.webkitAudioContext;if(AudioCtx)audioContext=new AudioCtx()}if(audioContext?.state==="suspended")audioContext.resume();return audioContext}
+function tone(freq,duration=.12,type="sine",volume=.035,when=0){const ctx=ensureAudio();if(!ctx)return;const osc=ctx.createOscillator(),gain=ctx.createGain(),start=ctx.currentTime+when;osc.type=type;osc.frequency.setValueAtTime(freq,start);gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(volume,start+.012);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);osc.connect(gain).connect(ctx.destination);osc.start(start);osc.stop(start+duration+.02)}
+function playStop(index){tone(260+index*72,.09,"triangle",.035,index*.025);tone(520+index*45,.055,"sine",.018,index*.025)}
+function playWin(){[523,659,784,1047].forEach((f,i)=>tone(f,.24,"triangle",.045,i*.09))}
+function playFreeSpins(){[392,494,587,784,988].forEach((f,i)=>tone(f,.3,"sine",.05,i*.12));tone(196,.55,"triangle",.045,.05)}
+function showFloating(text){const el=document.createElement("div");el.className="floating-win";el.textContent=text;fxLayer.append(el);setTimeout(()=>el.remove(),1700)}
+function sparks(count=26){for(let i=0;i<count;i++){const el=document.createElement("i");el.className="spark";el.style.left=`${15+Math.random()*70}%`;el.style.top=`${25+Math.random()*45}%`;el.style.setProperty("--dx",`${(Math.random()-.5)*260}px`);el.style.setProperty("--dy",`${-35-Math.random()*190}px`);el.style.setProperty("--dur",`${650+Math.random()*700}ms`);fxLayer.append(el);setTimeout(()=>el.remove(),1500)}}
+function formatWinSummary(result){const pieces=[];if(result.base.lineWins.length)pieces.push(`${result.base.lineWins.length} winning line${result.base.lineWins.length===1?"":"s"}`);if(result.base.scatterCount>=3)pieces.push(`${result.base.scatterCount} Scatters · ${result.base.freeSpinsAwarded} free spins`);if(result.freeSpins.length){const total=result.freeSpins.reduce((sum,spin)=>sum+spin.payout,0);pieces.push(`Time Rift paid ${money(total)} across ${result.freeSpins.length} free spins`)}if(result.capped)pieces.push("5,000× round cap reached");return pieces.length?pieces.join(" · "):`No win this round. ${PAYLINES.length} paylines were evaluated.`}
+async function spin(){if(busy||!reels)return;const bet=Number(betEl.value);if(bet<=0||balance<bet)return;ensureAudio();busy=true;balance-=bet;updateWallet();statusEl.textContent="The royal gears are turning…";summaryEl.textContent="The reels are in motion…";lastWinEl.textContent="—";reelsEl.classList.add("spinning");const result=resolvePaidRound(reels,bet);await delay(650);reelsEl.classList.remove("spinning");const reelNodes=[...reelsEl.children];for(let i=0;i<reelNodes.length;i++){reelNodes[i].classList.add("stopping");playStop(i);await delay(105)}reelNodes.forEach(el=>setTimeout(()=>el.classList.remove("stopping"),360));renderBoard(result.base.board,result.base.lineWins,result.base.scatterPositions);balance+=result.payout;lastWinEl.textContent=money(result.payout);const scatter=result.base.scatterCount>=3;if(result.payout>0){playWin();showFloating(`+${money(result.payout)} CREDITS · ${result.payoutMultiplier.toFixed(1)}×`);if(result.payoutMultiplier>=10)sparks(42)}if(scatter){playFreeSpins();sparks(55);showFloating("✦ TIME RIFT · FREE SPINS ✦")}statusEl.textContent=result.payout>0?`ROUND WIN · ${result.payoutMultiplier.toFixed(2)}× BET · ${money(result.payout)} CREDITS`:"NO WIN · THE KINGDOM KEEPS ITS SECRETS";summaryEl.textContent=formatWinSummary(result);busy=false;updateWallet()}
+function changeBet(direction){const values=[...betEl.options].map(option=>Number(option.value)),index=values.indexOf(Number(betEl.value));betEl.value=String(values[Math.max(0,Math.min(values.length-1,index+direction))]);updateWallet()}
+async function init(){makePaytable();betEl.addEventListener("change",updateWallet);$("bet-down").addEventListener("click",()=>changeBet(-1));$("bet-up").addEventListener("click",()=>changeBet(1));spinButton.addEventListener("click",spin);try{const response=await fetch("../games/clockwork_kingdom/reels/BR0.csv");if(!response.ok)throw new Error(`Could not load reel strips (${response.status}).`);reels=parseReelCsv(await response.text());renderBoard([["GEAR","J","KEY","J","GEAR"],["J","J","K","A","K"],["KEY","KEY","J","J","KEY"]]);statusEl.textContent="The foundry is ready. Choose your wager and pull the lever.";updateWallet()}catch(error){statusEl.textContent=`${error.message} Start the local web server from the repository root.`;statusEl.classList.add("loading-error");updateWallet()}}
 init();
